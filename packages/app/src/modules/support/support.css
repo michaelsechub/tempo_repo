@@ -1,0 +1,103 @@
+.eth-pill.solid {
+  display: inline-flex;
+  background: rgba(243, 115, 33, 0.1);
+  border: 1px solid rgba(243, 115, 33, 0.2);
+  color: #f37321;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.eth-kind {
+  display: inline-block;
+  background: #fff1e7;
+  color: #c85a17;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+}
+
+.eth-support {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+  color: #1b2a3b;
+}
+
+.eth-support-hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.eth-support-hero h1 {
+  margin: 16px 0;
+  font-size: clamp(36px, 5vw, 52px);
+  background: linear-gradient(90deg, #1b2a3b, #f37321);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.eth-support-hero p {
+  color: #5f6975;
+  font-size: 18px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.eth-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 28px 0 40px;
+}
+
+.eth-support-card,
+.eth-faq {
+  background: #fff;
+  border: 1px solid #e6e9ed;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(27, 42, 59, 0.04);
+}
+
+.eth-support-card h2,
+.eth-faq summary {
+  margin: 8px 0;
+  font-size: 18px;
+}
+
+.eth-support-card p,
+.eth-faq p {
+  margin: 0;
+  color: #5f6975;
+  line-height: 1.6;
+}
+
+.eth-support-card a {
+  color: #e86617;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.eth-faq {
+  margin-bottom: 12px;
+}
+
+.eth-faq summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.eth-faq p {
+  margin-top: 10px;
+}
+
+@media (max-width: 800px) {
+  .eth-support-grid {
+    grid-template-columns: 1fr;
+  }
+}

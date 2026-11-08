@@ -1,0 +1,278 @@
+.eth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f7f8fa;
+  color: #1b2a3b;
+  font-family: Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.eth-shell-main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f8fafc;
+}
+
+.eth-shell-main .MuiPaper-root,
+.eth-shell-main table {
+  background-color: #ffffff;
+  color: #1b2a3b;
+}
+
+.eth-shell-main > * {
+  flex: 1;
+}
+
+.eth-header {
+  height: 64px;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #e6e9ed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 clamp(16px, 4vw, 40px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+
+.eth-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.eth-brand img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.eth-brand strong,
+.eth-brand small {
+  display: block;
+}
+
+.eth-brand strong {
+  font-size: 16px;
+  line-height: 1.1;
+  color: #1b2a3b;
+}
+
+.eth-brand small {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #77808c;
+}
+
+.eth-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 64px;
+  min-width: 0;
+}
+
+.eth-nav a {
+  color: #58616d;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  height: 100%;
+  display: grid;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.eth-nav a:hover,
+.eth-nav a.active {
+  color: #f37321;
+  border-bottom-color: #f37321;
+}
+
+.eth-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.eth-search {
+  position: relative;
+}
+
+.eth-search input {
+  width: 190px;
+  height: 36px;
+  padding: 0 12px 0 34px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #1b2a3b;
+  font-size: 13px;
+}
+
+.eth-search input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #f37321;
+}
+
+.eth-search svg {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  color: #8a939d;
+}
+
+.eth-status {
+  background: #e8f6ef;
+  color: #25784c;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.eth-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #f37321;
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.eth-cta:hover {
+  background: #e06314;
+}
+
+.eth-icon-link {
+  color: #1b2a3b;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.eth-menu-button {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: #1b2a3b;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.eth-mobile-nav {
+  display: none;
+}
+
+.eth-footer {
+  background: #142536;
+  color: #fff;
+  margin-top: auto;
+}
+
+.eth-footer-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 24px;
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 28px;
+}
+
+.eth-footer h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.eth-footer p,
+.eth-footer a,
+.eth-footer li {
+  color: #b7c3d0;
+  font-size: 13px;
+}
+
+.eth-footer a {
+  text-decoration: none;
+}
+
+.eth-footer a:hover {
+  color: #fff;
+}
+
+.eth-footer ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.eth-footer h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eth-footer-base {
+  border-top: 1px solid #243648;
+  padding: 16px 24px 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #8ea0b3;
+  font-size: 12px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 980px) {
+  .eth-nav,
+  .eth-status,
+  .eth-search {
+    display: none;
+  }
+
+  .eth-menu-button {
+    display: grid;
+  }
+
+  .eth-mobile-nav.open {
+    display: grid;
+    gap: 12px;
+    padding: 8px 20px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e6e9ed;
+  }
+
+  .eth-mobile-nav a {
+    color: #1b2a3b;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .eth-footer-inner,
+  .eth-footer-base {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}

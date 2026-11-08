@@ -1,0 +1,311 @@
+.eth-home {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 40%, #f8fafc 100%);
+  color: #1b2a3b;
+}
+
+.eth-hero-band {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1b2a3b 0%, #1b2a3b 55%, #f37321 140%);
+  color: #fff;
+}
+
+.eth-hero-band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.eth-hero-band::after {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  top: -140px;
+  right: -80px;
+}
+
+.eth-hero-copy,
+.eth-section {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 72px 24px;
+  text-align: center;
+}
+
+.eth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.eth-pill.solid {
+  background: rgba(243, 115, 33, 0.1);
+  border-color: rgba(243, 115, 33, 0.2);
+  color: #f37321;
+}
+
+.eth-hero-copy h1 {
+  margin: 24px 0 16px;
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1.05;
+  letter-spacing: -1px;
+  font-weight: 800;
+}
+
+.eth-hero-copy h1 span {
+  display: block;
+  background: linear-gradient(90deg, #fde68a, #f37321);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.eth-hero-copy p,
+.eth-section > p {
+  max-width: 720px;
+  margin: 0 auto 28px;
+  color: #dbe7f3;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.eth-section > p {
+  color: #5f6975;
+}
+
+.eth-hero-actions,
+.eth-inline-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.eth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.eth-btn.primary {
+  background: #f37321;
+  color: #fff;
+}
+
+.eth-btn.primary:hover {
+  background: #e06314;
+}
+
+.eth-btn.ghost {
+  border: 1px solid #fff;
+  color: #fff;
+}
+
+.eth-btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.eth-btn.outline {
+  border: 1px solid #f37321;
+  color: #f37321;
+  background: #fff;
+}
+
+.eth-btn.outline:hover {
+  background: #f37321;
+  color: #fff;
+}
+
+.eth-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 640px;
+  margin: 48px auto 0;
+}
+
+.eth-hero-stats strong {
+  display: block;
+  font-size: 32px;
+}
+
+.eth-hero-stats span {
+  color: #c9d7e6;
+  font-size: 14px;
+}
+
+.eth-section {
+  text-align: center;
+  padding: 64px 24px;
+}
+
+.eth-section h2 {
+  margin: 12px 0;
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -0.5px;
+}
+
+.eth-feature-grid,
+.eth-api-grid,
+.eth-split {
+  display: grid;
+  gap: 20px;
+  text-align: left;
+}
+
+.eth-feature-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 36px;
+}
+
+.eth-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 22px;
+  box-shadow: 0 8px 24px rgba(27, 42, 59, 0.06);
+}
+
+.eth-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(27, 42, 59, 0.1);
+}
+
+.eth-card h3 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+}
+
+.eth-card p,
+.eth-step p,
+.eth-api-card p {
+  margin: 0;
+  color: #5f6975;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.eth-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(90deg, #f37321, #e06314);
+  font-weight: 800;
+}
+
+.eth-split {
+  grid-template-columns: 1.4fr 0.8fr;
+  margin-top: 8px;
+}
+
+.eth-step {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e6e9ed;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.eth-step b {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #1b2a3b;
+  color: #fff;
+  font-size: 12px;
+}
+
+.eth-step a {
+  color: #f37321;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.eth-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.eth-status-row strong,
+.eth-api-card h3 a {
+  color: #1b2a3b;
+  text-decoration: none;
+}
+
+.eth-ok {
+  background: #e8f6ef;
+  color: #25784c;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.eth-api-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.eth-api-card {
+  text-align: left;
+}
+
+.eth-kind {
+  display: inline-block;
+  background: #fff1e7;
+  color: #c85a17;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+}
+
+.eth-message {
+  margin-top: 20px;
+  color: #5f6975;
+}
+
+@media (max-width: 980px) {
+  .eth-feature-grid,
+  .eth-split,
+  .eth-api-grid,
+  .eth-hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .eth-step {
+    grid-template-columns: 40px 1fr;
+  }
+}
