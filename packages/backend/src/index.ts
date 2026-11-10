@@ -77,4 +77,5 @@ backend.add(
   import('@backstage/plugin-catalog-backend-module-openapi'),
 );
 
+backend.add(import('@internal/backstage-plugin-tesfa-backend'));
 backend.start();
