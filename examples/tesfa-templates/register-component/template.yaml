@@ -1,0 +1,150 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: register-component-form
+  title: Register a Component
+  description: Fill in a form. Backstage writes the YAML, opens a PR in catalog-repo, and registers it in the catalog.
+  tags: [catalog, tesfa]
+spec:
+  owner: group:default/guests
+  type: service
+
+  # ---------- THE FORM (3 pages) ----------
+  parameters:
+    # Page 1: basic info
+    - title: Component details
+      required: [name, type, lifecycle]
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name, e.g. payment-service
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          default: ''
+        type:
+          title: Type
+          type: string
+          enum: [service, website, library]
+          default: service
+        lifecycle:
+          title: Lifecycle
+          type: string
+          enum: [experimental, production, deprecated]
+          default: experimental
+
+    # Page 2: relationships, picked from existing catalog entities
+    - title: Ownership and relationships
+      required: [system, owner]
+      properties:
+        system:
+          title: System
+          type: string
+          description: The system this component belongs to
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: System
+            allowArbitraryValues: false
+        owner:
+          title: Owner
+          type: string
+          description: The user or group responsible for it
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+            allowArbitraryValues: false
+        providesApis:
+          title: Provides APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        consumesApis:
+          title: Consumes APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        dependsOn:
+          title: Depends on
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: [Component, Resource]
+            allowArbitraryValues: false
+
+    # Page 3: Git
+    - title: Pull request
+      required: [branchName]
+      properties:
+        branchName:
+          title: Branch name
+          type: string
+          description: Branch to create in catalog-repo, e.g. add-order-service
+          pattern: '^[a-zA-Z0-9._/-]+$'
+          ui:help: Letters, numbers, dashes, dots and slashes only. Must not already exist in catalog-repo.
+
+  # ---------- FORM → YAML → GIT → CATALOG ----------
+  steps:
+    - id: write
+      name: Generate catalog-info.yaml
+      action: catalog:write
+      input:
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            lifecycle: ${{ parameters.lifecycle }}
+            owner: ${{ parameters.owner }}
+            system: ${{ parameters.system }}
+            providesApis: ${{ parameters.providesApis }}
+            consumesApis: ${{ parameters.consumesApis }}
+            dependsOn: ${{ parameters.dependsOn }}
+
+    - id: pr
+      name: Open pull request in catalog-repo
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=michaelsechub&repo=catalog-repo
+        branchName: ${{ parameters.branchName }}
+        targetPath: catalog/components/${{ parameters.name }}
+        title: 'Add component ${{ parameters.name }}'
+        description: 'Created from Backstage by ${{ user.entity.metadata.name }}'
+
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        catalogInfoUrl: https://github.com/michaelsechub/catalog-repo/blob/main/catalog/components/${{ parameters.name }}/catalog-info.yaml
+        optional: true
+
+  output:
+    text:
+      - title: Branch
+        content: ${{ steps.pr.output.targetBranchName }}
+    links:
+      - title: Review the pull request
+        url: ${{ steps.pr.output.remoteUrl }}
