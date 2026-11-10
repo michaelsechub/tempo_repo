@@ -13,6 +13,7 @@ const backend = createBackend();
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
 
+
 // scaffolder plugin
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
@@ -27,6 +28,8 @@ backend.add(import('@backstage/plugin-techdocs-backend'));
 backend.add(import('@backstage/plugin-auth-backend'));
 // See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
 backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
+// Keycloak sign-in (OpenID Connect). See https://backstage.io/docs/auth/oidc
+backend.add(import('@backstage/plugin-auth-backend-module-oidc-provider'));
 // See https://backstage.io/docs/auth/guest/provider
 
 // catalog plugin
@@ -73,4 +76,5 @@ backend.add(import('@internal/backstage-plugin-hello-backend'));
 backend.add(
   import('@backstage/plugin-catalog-backend-module-openapi'),
 );
+
 backend.start();

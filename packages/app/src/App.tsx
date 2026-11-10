@@ -6,7 +6,8 @@ import { homeModule } from './modules/home';
 import { themeModule } from './modules/theme';
 import { supportModule } from './modules/support';
 import { docsModule } from './modules/docs';
+import { authModule } from './modules/auth';
 
 export default createApp({
-  features: [catalogPlugin, apiDocsPlugin, navModule, homeModule, themeModule, supportModule, docsModule],
+  features: [catalogPlugin, apiDocsPlugin, navModule, homeModule, themeModule, supportModule, docsModule, authModule],
 });

@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+
+metadata:
+  name: customer-api
+  description: Customer Management REST API
+  tags:
+    - customer
+    - rest
+    - spring-boot
+
+spec:
+  type: openapi
+  lifecycle: production
+  owner: user:guest
+  definition:
+    # $text: http://localhost:8000/openapi.json
+    $openapi: file:///home/kevin/Desktop/Projects/Backstage%202/examples/apis/customer-api/openapi.json
