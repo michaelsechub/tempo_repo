@@ -112,7 +112,7 @@ auth:
           resolvers:
             # Keycloak user with email tesfa@... signs in as catalog User "tesfa".
             # Each Keycloak user needs a matching User entity in examples/org.yaml.
-            - resolver: usernameMatchingUserEntityName
+            - resolver: emailLocalPartMatchingUserEntityName
     # See https://backstage.io/docs/auth/guest/provider
   # see https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
   # to learn more about client id metadata documents
