@@ -6,11 +6,12 @@ import {
   createTemplateAction,
   scaffolderActionsExtensionPoint,
 } from '@backstage/plugin-scaffolder-node';
+import { parseEntityRef } from '@backstage/catalog-model';
 
 /**
- * Scaffolder action `tesfa:entity:save`.
- * Form → database: sends the entity built from the form to the tesfa backend,
- * which stores it in the `tesfa.entities` table.
+ * Scaffolder actions:
+ * - `tesfa:entity:save`   creates a new entity row in the `tesfa.entities` table.
+ * - `tesfa:entity:update` edits an existing row in place (used by the edit template).
  */
 export default createBackendModule({
   pluginId: 'scaffolder',
@@ -60,6 +61,53 @@ export default createBackendModule({
               const { saved } = await res.json();
               ctx.logger.info(
                 `Saved ${saved} to the database. It will appear in the catalog within about a minute.`,
+              );
+            },
+          }),
+          createTemplateAction({
+            id: 'tesfa:entity:update',
+            description:
+              'Updates an existing catalog entity in the tesfa database (same row, no duplicate)',
+            schema: {
+              input: {
+                entityRef: z =>
+                  z
+                    .string()
+                    .describe('The entity being edited, e.g. component:default/my-service'),
+                entity: z =>
+                  z
+                    .record(z.any())
+                    .describe('The new version of the entity (apiVersion, kind, metadata, spec)'),
+              },
+            },
+            async handler(ctx) {
+              const { kind, name } = parseEntityRef(ctx.input.entityRef);
+              const baseUrl = await discovery.getBaseUrl('tesfa');
+              const { token } = await auth.getPluginRequestToken({
+                onBehalfOf: await ctx.getInitiatorCredentials(),
+                targetPluginId: 'tesfa',
+              });
+
+              const res = await fetch(
+                `${baseUrl}/entities/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`,
+                {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(ctx.input.entity),
+                },
+              );
+              if (!res.ok) {
+                throw new Error(
+                  `tesfa backend returned ${res.status}: ${await res.text()}`,
+                );
+              }
+
+              const { saved } = await res.json();
+              ctx.logger.info(
+                `Updated ${saved} in the database. The catalog shows the change within about a minute.`,
               );
             },
           }),

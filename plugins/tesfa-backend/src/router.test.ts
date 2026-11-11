@@ -25,7 +25,10 @@ describe('createRouter', () => {
   let todoList: jest.Mocked<typeof todoListServiceRef.T>;
   let catalog: { validateEntity: jest.Mock; getEntitiesByRefs: jest.Mock };
   let db: jest.Mock;
-  let merge: jest.Mock;
+  let ignore: jest.Mock;
+  let update: jest.Mock;
+  let whereRaw: jest.Mock;
+  let andWhere: jest.Mock;
 
   beforeEach(async () => {
     todoList = {
@@ -40,10 +43,17 @@ describe('createRouter', () => {
         items: entityRefs.map(() => ({ kind: 'Found', metadata: { name: 'x' } })),
       })),
     };
-    // Mocks the knex chain: db('entities').insert(...).onConflict(...).merge(...)
-    merge = jest.fn().mockResolvedValue(undefined);
-    const insert = jest.fn(() => ({ onConflict: () => ({ merge }) }));
-    db = jest.fn(() => ({ insert }));
+    // Mocks the knex chains:
+    //   create: db('entities').insert(...).returning(...).onConflict(...).ignore()
+    //   edit:   db('entities').whereRaw(...).andWhere(...).update(...)
+    ignore = jest.fn().mockResolvedValue([{ name: 'my-service' }]); // 1 row inserted
+    const insert = jest.fn(() => ({
+      returning: () => ({ onConflict: () => ({ ignore }) }),
+    }));
+    update = jest.fn().mockResolvedValue(1); // 1 row updated
+    andWhere = jest.fn(() => ({ update }));
+    whereRaw = jest.fn(() => ({ andWhere }));
+    db = jest.fn(() => ({ insert, whereRaw }));
     const router = await createRouter({
       httpAuth: mockServices.httpAuth(),
       todoList,
@@ -114,7 +124,16 @@ describe('createRouter', () => {
         }),
         expect.objectContaining({ credentials: expect.anything() }),
       );
-      expect(merge).toHaveBeenCalled();
+      expect(ignore).toHaveBeenCalled();
+    });
+
+    it('refuses to overwrite an entity that already exists', async () => {
+      ignore.mockResolvedValue([]); // conflict → nothing inserted
+
+      const response = await request(app).post('/entities').send(entity);
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.message).toContain('already exists');
     });
 
     it('rejects an invalid entity and does not save it', async () => {
@@ -193,6 +212,81 @@ describe('createRouter', () => {
       expect(response.body.error.message).toBe(
         'spec.owner "user:" is not a valid entity reference',
       );
+      expect(db).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PUT /entities/:kind/:name', () => {
+    const entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'my-service', description: 'Updated' },
+      spec: {
+        type: 'service',
+        lifecycle: 'production',
+        owner: 'user:default/tesfa',
+        system: 'system:default/system1',
+      },
+    };
+
+    it('updates the existing row in place (no insert)', async () => {
+      const response = await request(app)
+        .put('/entities/component/my-service')
+        .send(entity);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ saved: 'Component:my-service' });
+      // lowercase kind from the entity ref matches the stored "Component"
+      expect(whereRaw).toHaveBeenCalledWith('lower(kind) = ?', ['component']);
+      expect(andWhere).toHaveBeenCalledWith({ name: 'my-service' });
+      expect(update).toHaveBeenCalledWith({
+        kind: 'Component',
+        name: 'my-service',
+        entity: JSON.stringify(entity),
+      });
+      expect(ignore).not.toHaveBeenCalled();
+    });
+
+    it('renames the same row when the name changes', async () => {
+      const renamed = { ...entity, metadata: { ...entity.metadata, name: 'new-name' } };
+
+      const response = await request(app)
+        .put('/entities/component/my-service')
+        .send(renamed);
+
+      expect(response.status).toBe(200);
+      expect(andWhere).toHaveBeenCalledWith({ name: 'my-service' });
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ name: 'new-name' }));
+    });
+
+    it('returns 404 when the entity is not in the database', async () => {
+      update.mockResolvedValue(0);
+
+      const response = await request(app)
+        .put('/entities/component/missing')
+        .send(entity);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 409 when renaming onto a name that is taken', async () => {
+      update.mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }));
+
+      const response = await request(app)
+        .put('/entities/component/my-service')
+        .send(entity);
+
+      expect(response.status).toBe(409);
+    });
+
+    it('runs the same validation as create', async () => {
+      catalog.getEntitiesByRefs.mockResolvedValue({ items: [undefined, {}] });
+
+      const response = await request(app)
+        .put('/entities/component/my-service')
+        .send(entity);
+
+      expect(response.status).toBe(400);
       expect(db).not.toHaveBeenCalled();
     });
   });

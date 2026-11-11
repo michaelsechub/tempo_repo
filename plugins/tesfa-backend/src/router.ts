@@ -1,5 +1,8 @@
-import { HttpAuthService } from '@backstage/backend-plugin-api';
-import { InputError } from '@backstage/errors';
+import {
+  BackstageCredentials,
+  HttpAuthService,
+} from '@backstage/backend-plugin-api';
+import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
 import { z } from 'zod/v3';
 import express from 'express';
 import Router from 'express-promise-router';
@@ -57,11 +60,9 @@ export async function createRouter({
   const router = Router();
   router.use(express.json());
 
-  // Saves (inserts or updates) one catalog entity.
-  // Called by the `tesfa:entity:save` scaffolder action on behalf of the user.
-  router.post('/entities', async (req, res) => {
-    const credentials = await httpAuth.credentials(req, { allow: ['user'] });
-    const entity = req.body;
+  // Checks used by both create and edit: the body is a valid entity and its
+  // owner/system exist in the catalog. Throws an InputError (400) otherwise.
+  async function checkEntity(entity: any, credentials: BackstageCredentials) {
     if (!entity?.kind || !entity?.metadata?.name) {
       throw new InputError(
         'Body must be an entity with "kind" and "metadata.name"',
@@ -99,18 +100,71 @@ export async function createRouter({
         );
       }
     }
+  }
 
-    await db('entities')
+  // Creates one catalog entity. Fails with 409 if it already exists —
+  // existing entities are changed with PUT /entities/:kind/:name instead.
+  // Called by the `tesfa:entity:save` scaffolder action on behalf of the user.
+  router.post('/entities', async (req, res) => {
+    const credentials = await httpAuth.credentials(req, { allow: ['user'] });
+    const entity = req.body;
+    await checkEntity(entity, credentials);
+
+    const inserted = await db('entities')
       .insert({
         kind: entity.kind,
         name: entity.metadata.name,
         entity: JSON.stringify(entity),
         created_by: credentials.principal.userEntityRef,
       })
+      .returning('name')
       .onConflict(['kind', 'name'])
-      .merge(['entity']);
+      .ignore();
+    if (inserted.length === 0) {
+      throw new ConflictError(
+        `${entity.kind}:${entity.metadata.name} already exists. Use "Edit a Component (database)" to change it.`,
+      );
+    }
 
     res.status(201).json({ saved: `${entity.kind}:${entity.metadata.name}` });
+  });
+
+  // Edits an existing entity in place — never inserts a new row.
+  // :kind/:name identify the row being edited; the body is the new version
+  // (it may have a new name, in which case the same row is renamed).
+  // Called by the `tesfa:entity:update` scaffolder action on behalf of the user.
+  router.put('/entities/:kind/:name', async (req, res) => {
+    const credentials = await httpAuth.credentials(req, { allow: ['user'] });
+    const entity = req.body;
+    await checkEntity(entity, credentials);
+
+    let updated: number;
+    try {
+      updated = await db('entities')
+        // Entity refs use lowercase kinds (component:default/x); the table stores "Component"
+        .whereRaw('lower(kind) = ?', [req.params.kind.toLowerCase()])
+        .andWhere({ name: req.params.name })
+        .update({
+          kind: entity.kind,
+          name: entity.metadata.name,
+          entity: JSON.stringify(entity),
+        });
+    } catch (e: any) {
+      // 23505 = unique violation: renamed onto a name that is already taken
+      if (e?.code === '23505') {
+        throw new ConflictError(
+          `${entity.kind}:${entity.metadata.name} already exists`,
+        );
+      }
+      throw e;
+    }
+    if (updated === 0) {
+      throw new NotFoundError(
+        `${req.params.kind}:${req.params.name} is not in the database`,
+      );
+    }
+
+    res.json({ saved: `${entity.kind}:${entity.metadata.name}` });
   });
 
   // Lists all stored entities. Called by the tesfa-db catalog entity provider.

@@ -10,9 +10,32 @@ import {
   EntityProvider,
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 
 const PROVIDER_NAME = 'tesfa-db';
+
+/**
+ * Link to the "Edit a Component (database)" template, pre-filled with the
+ * entity's current values. Shown as the pencil icon on the entity's About card.
+ */
+function buildEditUrl(appBaseUrl: string, entity: Entity): string {
+  const spec: any = entity.spec ?? {};
+  const formData = {
+    component: stringifyEntityRef(entity),
+    name: entity.metadata.name,
+    description: entity.metadata.description ?? '',
+    type: spec.type,
+    lifecycle: spec.lifecycle,
+    owner: spec.owner,
+    system: spec.system,
+    providesApis: spec.providesApis ?? [],
+    consumesApis: spec.consumesApis ?? [],
+    dependsOn: spec.dependsOn ?? [],
+  };
+  return `${appBaseUrl}/create/templates/default/edit-component-db?formData=${encodeURIComponent(
+    JSON.stringify(formData),
+  )}`;
+}
 
 /**
  * Database → catalog: reads all entities from the tesfa backend and
@@ -26,6 +49,7 @@ class TesfaEntityProvider implements EntityProvider {
     private readonly discovery: DiscoveryService,
     private readonly auth: AuthService,
     private readonly logger: LoggerService,
+    private readonly appBaseUrl: string,
   ) {}
 
   getProviderName() {
@@ -70,6 +94,11 @@ class TesfaEntityProvider implements EntityProvider {
               ...entity.metadata.annotations,
               'backstage.io/managed-by-location': location,
               'backstage.io/managed-by-origin-location': location,
+              // Lets the edit template's picker show only database entities
+              'tesfa.io/source': 'database',
+              ...(entity.kind === 'Component'
+                ? { 'backstage.io/edit-url': buildEditUrl(this.appBaseUrl, entity) }
+                : {}),
             },
           },
         },
@@ -91,9 +120,15 @@ export default createBackendModule({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
         logger: coreServices.logger,
+        config: coreServices.rootConfig,
       },
-      async init({ catalog, scheduler, discovery, auth, logger }) {
-        const provider = new TesfaEntityProvider(discovery, auth, logger);
+      async init({ catalog, scheduler, discovery, auth, logger, config }) {
+        const provider = new TesfaEntityProvider(
+          discovery,
+          auth,
+          logger,
+          config.getString('app.baseUrl'),
+        );
         catalog.addEntityProvider(provider);
 
         await scheduler.scheduleTask({
