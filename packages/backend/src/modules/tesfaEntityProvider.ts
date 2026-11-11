@@ -15,24 +15,48 @@ import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 const PROVIDER_NAME = 'tesfa-db';
 
 /**
- * Link to the "Edit a Component (database)" template, pre-filled with the
+ * Link to the matching "Manage a … (database)" template, opened on "edit", pre-filled with the
  * entity's current values. Shown as the pencil icon on the entity's About card.
  */
-function buildEditUrl(appBaseUrl: string, entity: Entity): string {
+function buildEditUrl(appBaseUrl: string, entity: Entity): string | undefined {
   const spec: any = entity.spec ?? {};
-  const formData = {
-    component: stringifyEntityRef(entity),
+  const ref = stringifyEntityRef(entity);
+  const common = {
     name: entity.metadata.name,
     description: entity.metadata.description ?? '',
-    type: spec.type,
-    lifecycle: spec.lifecycle,
     owner: spec.owner,
-    system: spec.system,
-    providesApis: spec.providesApis ?? [],
-    consumesApis: spec.consumesApis ?? [],
-    dependsOn: spec.dependsOn ?? [],
   };
-  return `${appBaseUrl}/create/templates/default/edit-component-db?formData=${encodeURIComponent(
+
+  let template: string;
+  let formData: Record<string, unknown>;
+  switch (entity.kind) {
+    case 'Component':
+      template = 'manage-component-db';
+      formData = {
+        operation: 'edit',
+        component: ref,
+        ...common,
+        type: spec.type,
+        lifecycle: spec.lifecycle,
+        system: spec.system,
+        providesApis: spec.providesApis ?? [],
+        consumesApis: spec.consumesApis ?? [],
+        dependsOn: spec.dependsOn ?? [],
+      };
+      break;
+    case 'System':
+      template = 'manage-system-db';
+      formData = { operation: 'edit', system: ref, title: entity.metadata.title ?? '', ...common };
+      break;
+    case 'Domain':
+      template = 'manage-domain-db';
+      formData = { operation: 'edit', domain: ref, title: entity.metadata.title ?? '', ...common };
+      break;
+    default:
+      return undefined;
+  }
+
+  return `${appBaseUrl}/create/templates/default/${template}?formData=${encodeURIComponent(
     JSON.stringify(formData),
   )}`;
 }
@@ -84,25 +108,26 @@ class TesfaEntityProvider implements EntityProvider {
 
     await this.connection.applyMutation({
       type: 'full',
-      entities: entities.map(entity => ({
-        locationKey: PROVIDER_NAME,
-        entity: {
-          ...entity,
-          metadata: {
-            ...entity.metadata,
-            annotations: {
-              ...entity.metadata.annotations,
-              'backstage.io/managed-by-location': location,
-              'backstage.io/managed-by-origin-location': location,
-              // Lets the edit template's picker show only database entities
-              'tesfa.io/source': 'database',
-              ...(entity.kind === 'Component'
-                ? { 'backstage.io/edit-url': buildEditUrl(this.appBaseUrl, entity) }
-                : {}),
+      entities: entities.map(entity => {
+        const editUrl = buildEditUrl(this.appBaseUrl, entity);
+        return {
+          locationKey: PROVIDER_NAME,
+          entity: {
+            ...entity,
+            metadata: {
+              ...entity.metadata,
+              annotations: {
+                ...entity.metadata.annotations,
+                'backstage.io/managed-by-location': location,
+                'backstage.io/managed-by-origin-location': location,
+                // Lets the edit/delete templates' pickers show only database entities
+                'tesfa.io/source': 'database',
+                ...(editUrl ? { 'backstage.io/edit-url': editUrl } : {}),
+              },
             },
           },
-        },
-      })),
+        };
+      }),
     });
 
     this.logger.info(`Sent ${entities.length} entities from the database to the catalog`);
@@ -133,8 +158,8 @@ export default createBackendModule({
 
         await scheduler.scheduleTask({
           id: 'tesfa-db-provider-refresh',
-          frequency: { minutes: 1 },
-          timeout: { minutes: 1 },
+          frequency: { seconds: 10 },
+          timeout: { seconds: 30 },
           fn: () => provider.run(),
         });
       },
