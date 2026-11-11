@@ -7,6 +7,9 @@ app:
 
   extensions:
     - theme:app/dark: false
+    - catalog-filter:catalog/list:
+        config:
+          initialFilter: all
     - page:home:
         config:
           path: /
