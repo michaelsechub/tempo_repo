@@ -1,0 +1,198 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: manage-component-db
+  title: Manage a Component 
+  description: Create, edit or delete a Component stored in the tesfa database. The catalog shows the change within about a minute. No Git involved.
+  tags: [catalog, tesfa, database]
+spec:
+  owner: group:default/guests
+  type: service
+
+  # The last button always says "Create" by default; this form also edits and deletes
+  presentation:
+    buttonLabels:
+      createButtonText: Submit
+
+  # ---------- THE FORM ----------
+  # The fields shown depend on the chosen operation (JSON Schema dependencies/oneOf).
+  parameters:
+    - title: Component
+      required: [operation]
+      properties:
+        operation:
+          title: What do you want to do?
+          type: string
+          enum: [create, edit, delete]
+          enumNames: [Create a new Component, Edit an existing Component, Delete a Component]
+          default: create
+      dependencies:
+        operation:
+          oneOf:
+            # ----- Create -----
+            - required: [name, type, lifecycle, system, owner]
+              properties:
+                operation:
+                  const: create
+                name: &name
+                  title: Name
+                  type: string
+                  description: Unique name, e.g. payment-service
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                description: &description
+                  title: Description
+                  type: string
+                  default: ''
+                type: &type
+                  title: Type
+                  type: string
+                  enum: [service, website, library]
+                  default: service
+                lifecycle: &lifecycle
+                  title: Lifecycle
+                  type: string
+                  enum: [experimental, production, deprecated]
+                  default: experimental
+                system: &system
+                  title: System
+                  type: string
+                  description: The system this component belongs to
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: System
+                    allowArbitraryValues: false
+                owner: &owner
+                  title: Owner
+                  type: string
+                  description: The user or group responsible for it
+                  ui:field: OwnerPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: [Group, User]
+                    allowArbitraryValues: false
+                providesApis: &providesApis
+                  title: Provides APIs
+                  type: array
+                  default: []
+                  items:
+                    type: string
+                  ui:field: MultiEntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: API
+                    allowArbitraryValues: false
+                consumesApis: &consumesApis
+                  title: Consumes APIs
+                  type: array
+                  default: []
+                  items:
+                    type: string
+                  ui:field: MultiEntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: API
+                    allowArbitraryValues: false
+                dependsOn: &dependsOn
+                  title: Depends on
+                  type: array
+                  default: []
+                  items:
+                    type: string
+                  ui:field: MultiEntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: [Component, Resource]
+                    allowArbitraryValues: false
+
+            # ----- Edit -----
+            - required: [component, name, type, lifecycle, system, owner]
+              properties:
+                operation:
+                  const: edit
+                component: &picker
+                  title: Component
+                  type: string
+                  description: Only components stored in the database are listed
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: Component
+                      metadata.annotations.tesfa.io/source: database
+                    allowArbitraryValues: false
+                name: *name
+                description: *description
+                type: *type
+                lifecycle: *lifecycle
+                system: *system
+                owner: *owner
+                providesApis: *providesApis
+                consumesApis: *consumesApis
+                dependsOn: *dependsOn
+
+            # ----- Delete -----
+            - required: [component, confirm]
+              properties:
+                operation:
+                  const: delete
+                component: *picker
+                confirm:
+                  title: I understand this Component will be permanently deleted
+                  type: boolean
+                  const: true
+
+  # ---------- FORM → DATABASE → CATALOG (only the step for the chosen operation runs) ----------
+  steps:
+    - id: create
+      name: Save to database
+      if: ${{ parameters.operation == 'create' }}
+      action: tesfa:entity:save
+      input:
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            lifecycle: ${{ parameters.lifecycle }}
+            owner: ${{ parameters.owner }}
+            system: ${{ parameters.system }}
+            providesApis: ${{ parameters.providesApis }}
+            consumesApis: ${{ parameters.consumesApis }}
+            dependsOn: ${{ parameters.dependsOn }}
+
+    - id: edit
+      name: Update in database
+      if: ${{ parameters.operation == 'edit' }}
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.component }}
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            lifecycle: ${{ parameters.lifecycle }}
+            owner: ${{ parameters.owner }}
+            system: ${{ parameters.system }}
+            providesApis: ${{ parameters.providesApis }}
+            consumesApis: ${{ parameters.consumesApis }}
+            dependsOn: ${{ parameters.dependsOn }}
+
+    - id: delete
+      name: Delete from database
+      if: ${{ parameters.operation == 'delete' }}
+      action: tesfa:entity:delete
+      input:
+        entityRef: ${{ parameters.component }}
+
+  output:
+    links:
+      - title: ${{ 'Back to the catalog' if parameters.operation == 'delete' else 'Open in catalog (shows the change within about a minute)' }}
+        icon: catalog
+        url: ${{ '/catalog' if parameters.operation == 'delete' else '/catalog/default/component/' + parameters.name }}

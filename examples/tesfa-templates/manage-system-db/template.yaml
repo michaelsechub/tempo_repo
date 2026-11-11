@@ -1,0 +1,136 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: manage-system-db
+  title: Manage a System 
+  description: Create, edit or delete a System stored in the tesfa database. The catalog shows the change within about a minute. No Git involved.
+  tags: [catalog, tesfa, database]
+spec:
+  owner: group:default/guests
+  type: system
+
+  # The last button always says "Create" by default; this form also edits and deletes
+  presentation:
+    buttonLabels:
+      createButtonText: Submit
+
+  # ---------- THE FORM ----------
+  # The fields shown depend on the chosen operation (JSON Schema dependencies/oneOf).
+  parameters:
+    - title: System
+      required: [operation]
+      properties:
+        operation:
+          title: What do you want to do?
+          type: string
+          enum: [create, edit, delete]
+          enumNames: [Create a new System, Edit an existing System, Delete a System]
+          default: create
+      dependencies:
+        operation:
+          oneOf:
+            # ----- Create -----
+            - required: [name, title, owner]
+              properties:
+                operation:
+                  const: create
+                name: &name
+                  title: ID
+                  type: string
+                  description: Unique, lowercase with dashes, e.g. payments-core
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                title: &title
+                  title: Title
+                  type: string
+                  description: Display name, e.g. Payments Core
+                description: &description
+                  title: Description
+                  type: string
+                  default: ''
+                  ui:widget: textarea
+                owner: &owner
+                  title: Owner
+                  type: string
+                  description: The user or group responsible for it
+                  ui:field: OwnerPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: [Group, User]
+                    allowArbitraryValues: false
+
+            # ----- Edit -----
+            - required: [system, name, title, owner]
+              properties:
+                operation:
+                  const: edit
+                system: &picker
+                  title: System
+                  type: string
+                  description: Only systems stored in the database are listed
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: System
+                      metadata.annotations.tesfa.io/source: database
+                    allowArbitraryValues: false
+                name: *name
+                title: *title
+                description: *description
+                owner: *owner
+
+            # ----- Delete -----
+            - required: [system, confirm]
+              properties:
+                operation:
+                  const: delete
+                system: *picker
+                confirm:
+                  title: I understand this System will be permanently deleted
+                  type: boolean
+                  const: true
+
+  # ---------- FORM → DATABASE → CATALOG (only the step for the chosen operation runs) ----------
+  steps:
+    - id: create
+      name: Save to database
+      if: ${{ parameters.operation == 'create' }}
+      action: tesfa:entity:save
+      input:
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: System
+          metadata:
+            name: ${{ parameters.name }}
+            title: ${{ parameters.title }}
+            description: ${{ parameters.description }}
+          spec:
+            owner: ${{ parameters.owner }}
+
+    - id: edit
+      name: Update in database
+      if: ${{ parameters.operation == 'edit' }}
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.system }}
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: System
+          metadata:
+            name: ${{ parameters.name }}
+            title: ${{ parameters.title }}
+            description: ${{ parameters.description }}
+          spec:
+            owner: ${{ parameters.owner }}
+
+    - id: delete
+      name: Delete from database
+      if: ${{ parameters.operation == 'delete' }}
+      action: tesfa:entity:delete
+      input:
+        entityRef: ${{ parameters.system }}
+
+  output:
+    links:
+      - title: ${{ 'Back to the catalog' if parameters.operation == 'delete' else 'Open in catalog (shows the change within about a minute)' }}
+        icon: catalog
+        url: ${{ '/catalog' if parameters.operation == 'delete' else '/catalog/default/system/' + parameters.name }}

@@ -111,6 +111,44 @@ export default createBackendModule({
               );
             },
           }),
+          createTemplateAction({
+            id: 'tesfa:entity:delete',
+            description: 'Deletes an entity from the tesfa database',
+            schema: {
+              input: {
+                entityRef: z =>
+                  z
+                    .string()
+                    .describe('The entity to delete, e.g. system:default/payments-core'),
+              },
+            },
+            async handler(ctx) {
+              const { kind, name } = parseEntityRef(ctx.input.entityRef);
+              const baseUrl = await discovery.getBaseUrl('tesfa');
+              const { token } = await auth.getPluginRequestToken({
+                onBehalfOf: await ctx.getInitiatorCredentials(),
+                targetPluginId: 'tesfa',
+              });
+
+              const res = await fetch(
+                `${baseUrl}/entities/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`,
+                {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              );
+              if (!res.ok) {
+                throw new Error(
+                  `tesfa backend returned ${res.status}: ${await res.text()}`,
+                );
+              }
+
+              const { deleted } = await res.json();
+              ctx.logger.info(
+                `Deleted ${deleted} from the database. It leaves the catalog within about a minute.`,
+              );
+            },
+          }),
         );
       },
     });

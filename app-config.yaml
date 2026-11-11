@@ -138,7 +138,7 @@ catalog:
   #   entityFilename: catalog-info.yaml
   #   pullRequestBranchName: backstage-integration
   rules:
-    - allow: [Component, System, API, Resource,User, Group,Template, Location]
+    - allow: [Component, System, Domain, API, Resource, User, Group, Template, Location]
   locations:
   #  # add under catalog.locations
   #   - type: file
@@ -149,16 +149,21 @@ catalog:
       rules:
         - allow: [Component, System, API, Resource, Location,User, Group, Template]
 
+    # Git-based component form (opens a PR). Not registered, so only the 3 database templates show:
+    # - type: file
+    #   target: ../../examples/tesfa-templates/register-component/template.yaml
+    #   rules:
+    #     - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/register-component/template.yaml
+      target: ../../examples/tesfa-templates/manage-component-db/template.yaml
       rules:
         - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/register-component-db/template.yaml
+      target: ../../examples/tesfa-templates/manage-system-db/template.yaml
       rules:
         - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/edit-component-db/template.yaml
+      target: ../../examples/tesfa-templates/manage-domain-db/template.yaml
       rules:
         - allow: [Template]
   #   # Local example template

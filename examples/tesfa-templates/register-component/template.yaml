@@ -2,7 +2,7 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: register-component-form
-  title: Register a Component updated
+  title: Register a Component 
   description: Fill in a form. Backstage writes the YAML, opens a PR in catalog-repo, and registers it in the catalog.
   tags: [catalog, tesfa]
 spec:

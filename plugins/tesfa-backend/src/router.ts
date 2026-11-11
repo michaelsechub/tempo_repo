@@ -122,7 +122,7 @@ export async function createRouter({
       .ignore();
     if (inserted.length === 0) {
       throw new ConflictError(
-        `${entity.kind}:${entity.metadata.name} already exists. Use "Edit a Component (database)" to change it.`,
+        `${entity.kind}:${entity.metadata.name} already exists. Use "Manage a ${entity.kind} (database)" → Edit to change it.`,
       );
     }
 
@@ -165,6 +165,43 @@ export async function createRouter({
     }
 
     res.json({ saved: `${entity.kind}:${entity.metadata.name}` });
+  });
+
+  // Deletes one entity row. The provider's next run (within a minute) removes
+  // it from the catalog. Refuses while other entities still belong to it
+  // (components/APIs in a system, systems in a domain).
+  // Called by the `tesfa:entity:delete` scaffolder action on behalf of the user.
+  router.delete('/entities/:kind/:name', async (req, res) => {
+    const credentials = await httpAuth.credentials(req, { allow: ['user'] });
+    const kind = req.params.kind.toLowerCase();
+    const { name } = req.params;
+    const ref = `${kind}:default/${name}`;
+
+    const { items: children } = await catalog.getEntities(
+      {
+        filter: { 'relations.partOf': ref },
+        fields: ['kind', 'metadata.name'],
+      },
+      { credentials },
+    );
+    if (children.length > 0) {
+      const list = children
+        .map(c => `${c.kind}:${c.metadata.name}`)
+        .join(', ');
+      throw new ConflictError(
+        `${ref} still has entities that belong to it: ${list}. Move or delete them first.`,
+      );
+    }
+
+    const deleted = await db('entities')
+      .whereRaw('lower(kind) = ?', [kind])
+      .andWhere({ name })
+      .delete();
+    if (deleted === 0) {
+      throw new NotFoundError(`${ref} is not in the database`);
+    }
+
+    res.json({ deleted: ref });
   });
 
   // Lists all stored entities. Called by the tesfa-db catalog entity provider.
