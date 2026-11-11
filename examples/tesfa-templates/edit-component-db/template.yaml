@@ -1,0 +1,131 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: edit-component-db
+  title: Edit a Component (database)
+  description: Change a component that was registered through the database form. Updates the same database row, so no duplicate is created.
+  tags: [catalog, tesfa, database]
+spec:
+  owner: group:default/guests
+  type: service
+
+  # ---------- THE FORM (2 pages) ----------
+  parameters:
+    # Page 1: basic info
+    - title: Component details
+      required: [component, name, type, lifecycle]
+      properties:
+        component:
+          title: Component to edit
+          type: string
+          description: Only components registered through the database form are listed
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: Component
+              metadata.annotations.tesfa.io/source: database
+            allowArbitraryValues: false
+        name:
+          title: Name
+          type: string
+          description: Unique name, e.g. payment-service
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          default: ''
+        type:
+          title: Type
+          type: string
+          enum: [service, website, library]
+          default: service
+        lifecycle:
+          title: Lifecycle
+          type: string
+          enum: [experimental, production, deprecated]
+          default: experimental
+
+    # Page 2: relationships, picked from existing catalog entities
+    - title: Ownership and relationships
+      required: [system, owner]
+      properties:
+        system:
+          title: System
+          type: string
+          description: The system this component belongs to
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: System
+            allowArbitraryValues: false
+        owner:
+          title: Owner
+          type: string
+          description: The user or group responsible for it
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+            allowArbitraryValues: false
+        providesApis:
+          title: Provides APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        consumesApis:
+          title: Consumes APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        dependsOn:
+          title: Depends on
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: [Component, Resource]
+            allowArbitraryValues: false
+
+  # ---------- FORM → DATABASE (update same row) → CATALOG ----------
+  steps:
+    - id: update
+      name: Update in database
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.component }}
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            lifecycle: ${{ parameters.lifecycle }}
+            owner: ${{ parameters.owner }}
+            system: ${{ parameters.system }}
+            providesApis: ${{ parameters.providesApis }}
+            consumesApis: ${{ parameters.consumesApis }}
+            dependsOn: ${{ parameters.dependsOn }}
+
+  output:
+    links:
+      - title: Open in catalog (updates within about a minute)
+        icon: catalog
+        entityRef: component:default/${{ parameters.name }}
