@@ -144,10 +144,6 @@ catalog:
   #   - type: file
   #     target: ../../examples/apis/customer-api/catalog-info.yaml
   #   # Local example data, file locations are relative to the backend process, typically `packages/backend`
-    - type: file
-      target: ../../examples/entities.yaml
-      rules:
-        - allow: [Component, System, API, Resource, Location,User, Group, Template]
 
     # Git-based component form (opens a PR). Not registered, so only the 3 database templates show:
     # - type: file
@@ -155,15 +151,19 @@ catalog:
     #   rules:
     #     - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/manage-component-db/template.yaml
+      target: ../../tesfa-templates/manage-component-db/template.yaml
       rules:
         - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/manage-system-db/template.yaml
+      target: ../../tesfa-templates/manage-system-db/template.yaml
       rules:
         - allow: [Template]
     - type: file
-      target: ../../examples/tesfa-templates/manage-domain-db/template.yaml
+      target: ../../tesfa-templates/manage-domain-db/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../tesfa-templates/manage-user-group-db/template.yaml
       rules:
         - allow: [Template]
   #   # Local example template
@@ -171,21 +171,11 @@ catalog:
   #     target: ../../examples/template/template.yaml
   #     rules:
   #       - allow: [Template]
-
-  #   # Local example organizational data
-    - type: file
-      target: ../../examples/org.yaml
-      rules:
-        - allow: [User, Group]
-  #       # Customer Management API
-  #   - type: file
-  #     target: ../../demo-service.yaml
-  #     rules:
-  #       - allow: [Component, API]
-    - type: url
-      target: https://github.com/michaelsechub/catalog-repo/blob/main/catalog/all.yaml
-      rules:
-        - allow: [User, Group, System, Component, API, Location]
+  # TODO: Github is temporarly commented !
+    # - type: url
+    #   target: https://github.com/michaelsechub/catalog-repo/blob/main/catalog/all.yaml
+    #   rules:
+    #     - allow: [User, Group, System, Component, API, Location]
     # - type: url
     #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
 
@@ -207,3 +197,9 @@ permission:
 mcpActions:
   name: 'ETH Switch Developer Portal' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
+
+# tesfa backend plugin
+tesfa:
+  # Folder for PDFs uploaded from the "Manage a …" templates, saved as <id>.pdf.
+  # Relative to packages/backend (where the backend runs), so this is <repo>/files.
+  filesDir: ../../files

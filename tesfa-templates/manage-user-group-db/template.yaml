@@ -1,0 +1,260 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: manage-user-group-db
+  title: Manage a User or Group
+  description: Create, edit or delete a User or Group stored in the tesfa database.
+  tags: [catalog, tesfa, database, org]
+spec:
+  owner: group:default/guests
+  type: org
+
+  # The last button always says "Create" by default; this form also edits and deletes
+  presentation:
+    buttonLabels:
+      createButtonText: Submit
+
+  # ---------- THE FORM ----------
+  # One choice picks both the kind (User/Group) and the operation, and the fields
+  # shown depend on it (JSON Schema dependencies/oneOf).
+  parameters:
+    - title: User or Group
+      required: [operation]
+      properties:
+        operation:
+          title: What do you want to do?
+          type: string
+          enum: [create-user, edit-user, delete-user, create-group, edit-group, delete-group]
+          enumNames:
+            - Create a new User
+            - Edit an existing User
+            - Delete a User
+            - Create a new Group
+            - Edit an existing Group
+            - Delete a Group
+          default: create-user
+      dependencies:
+        operation:
+          oneOf:
+            # ===== USER =====
+            # ----- Create User -----
+            - required: [name, displayName]
+              properties:
+                operation:
+                  const: create-user
+                name: &userName
+                  title: Username (ID)
+                  type: string
+                  description: Unique, lowercase, e.g. jane.doe or jane-doe
+                  pattern: '^[a-z0-9]+([._-][a-z0-9]+)*$'
+                displayName: &userDisplayName
+                  title: Full name
+                  type: string
+                  description: e.g. Jane Doe
+                email: &email
+                  title: Email
+                  type: string
+                  format: email
+                description: &description
+                  title: Description
+                  type: string
+                  default: ''
+                  ui:widget: textarea
+                memberOf: &memberOf
+                  title: Member of
+                  type: array
+                  description: Groups this user belongs to
+                  default: []
+                  items:
+                    type: string
+                  ui:field: MultiEntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: Group
+                    allowArbitraryValues: false
+
+            # ----- Edit User -----
+            - required: [user, name, displayName]
+              properties:
+                operation:
+                  const: edit-user
+                user: &userPicker
+                  title: User
+                  type: string
+                  description: Only users stored in the database are listed
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: User
+                      metadata.annotations.tesfa.io/source: database
+                    allowArbitraryValues: false
+                name: *userName
+                displayName: *userDisplayName
+                email: *email
+                description: *description
+                memberOf: *memberOf
+
+            # ----- Delete User -----
+            - required: [user, confirm]
+              properties:
+                operation:
+                  const: delete-user
+                user: *userPicker
+                confirm: &confirm
+                  title: I understand this will be permanently deleted
+                  type: boolean
+                  const: true
+
+            # ===== GROUP =====
+            # ----- Create Group -----
+            - required: [name, displayName, type]
+              properties:
+                operation:
+                  const: create-group
+                name: &groupName
+                  title: ID
+                  type: string
+                  description: Unique, lowercase with dashes, e.g. team-payments
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                displayName: &groupDisplayName
+                  title: Display name
+                  type: string
+                  description: e.g. Payments Team
+                type: &groupType
+                  title: Type
+                  type: string
+                  enum: [team, department, business-unit, organization]
+                  # enumNames: [Team, Department, Business unit, Organization]
+                  default: team
+                email: *email
+                description: *description
+                parent: &parent
+                  title: Parent group
+                  type: string
+                  description: Optional, the group this one sits under
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: Group
+                    allowArbitraryValues: false
+                members: &members
+                  title: Members
+                  type: array
+                  description: Optional, users in this group (also possible from the User form)
+                  default: []
+                  items:
+                    type: string
+                  ui:field: MultiEntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: User
+                    allowArbitraryValues: false
+
+            # ----- Edit Group -----
+            - required: [group, name, displayName, type]
+              properties:
+                operation:
+                  const: edit-group
+                group: &groupPicker
+                  title: Group
+                  type: string
+                  description: Only groups stored in the database are listed
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: Group
+                      metadata.annotations.tesfa.io/source: database
+                    allowArbitraryValues: false
+                name: *groupName
+                displayName: *groupDisplayName
+                type: *groupType
+                email: *email
+                description: *description
+                parent: *parent
+                members: *members
+
+            # ----- Delete Group -----
+            - required: [group, confirm]
+              properties:
+                operation:
+                  const: delete-group
+                group: *groupPicker
+                confirm: *confirm
+
+  # ---------- FORM → DATABASE → CATALOG (only the step for the chosen operation runs) ----------
+  steps:
+    # ----- User -----
+    - id: create-user
+      name: Save User to database
+      if: ${{ parameters.operation == 'create-user' }}
+      action: tesfa:entity:save
+      input:
+        entity: &userEntity
+          apiVersion: backstage.io/v1alpha1
+          kind: User
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            profile:
+              displayName: ${{ parameters.displayName }}
+              email: ${{ parameters.email }}
+            memberOf: ${{ parameters.memberOf }}
+
+    - id: edit-user
+      name: Update User in database
+      if: ${{ parameters.operation == 'edit-user' }}
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.user }}
+        entity: *userEntity
+
+    - id: delete-user
+      name: Delete User from database
+      if: ${{ parameters.operation == 'delete-user' }}
+      action: tesfa:entity:delete
+      input:
+        entityRef: ${{ parameters.user }}
+
+    # ----- Group -----
+    - id: create-group
+      name: Save Group to database
+      if: ${{ parameters.operation == 'create-group' }}
+      action: tesfa:entity:save
+      input:
+        entity: &groupEntity
+          apiVersion: backstage.io/v1alpha1
+          kind: Group
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            profile:
+              displayName: ${{ parameters.displayName }}
+              email: ${{ parameters.email }}
+            parent: ${{ parameters.parent }}
+            # Required by the Group schema; child groups point to their parent instead
+            children: []
+            members: ${{ parameters.members }}
+
+    - id: edit-group
+      name: Update Group in database
+      if: ${{ parameters.operation == 'edit-group' }}
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.group }}
+        entity: *groupEntity
+
+    - id: delete-group
+      name: Delete Group from database
+      if: ${{ parameters.operation == 'delete-group' }}
+      action: tesfa:entity:delete
+      input:
+        entityRef: ${{ parameters.group }}
+
+  output:
+    links:
+      - title: ${{ 'Back to the catalog' if parameters.operation.startsWith('delete') else 'Open in catalog (shows the change within about a minute)' }}
+        icon: catalog
+        url: ${{ '/catalog' if parameters.operation.startsWith('delete') else '/catalog/default/' + ('user' if parameters.operation.endsWith('user') else 'group') + '/' + parameters.name }}

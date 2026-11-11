@@ -1,0 +1,198 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: manage-system-db
+  title: Manage a System
+  description: Create, edit or delete a System stored in the tesfa database.
+  tags: [catalog, tesfa, database]
+spec:
+  owner: group:default/guests
+  type: system
+
+  # The last button always says "Create" by default; this form also edits and deletes
+  presentation:
+    buttonLabels:
+      createButtonText: Submit
+
+  # ---------- THE FORM ----------
+  # The fields shown depend on the chosen operation (JSON Schema dependencies/oneOf).
+  # Inside create/edit, the Owner picker depends on "Owner type" (User or Group).
+  parameters:
+    - title: System
+      required: [operation]
+      properties:
+        operation:
+          title: What do you want to do?
+          type: string
+          enum: [create, edit, delete]
+          enumNames: [Create a new System, Edit an existing System, Delete a System]
+          default: create
+      dependencies:
+        operation:
+          oneOf:
+            # ----- Create -----
+            - required: [name, title, ownerType]
+              properties:
+                operation:
+                  const: create
+                name: &name
+                  title: ID
+                  type: string
+                  description: Unique, lowercase with dashes, e.g. payments-core
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                title: &title
+                  title: Title
+                  type: string
+                  description: Display name, e.g. Payments Core
+                description: &description
+                  title: Description
+                  type: string
+                  default: ''
+                  ui:widget: textarea
+                techdocsUrl: &techdocsUrl
+                  title: TechDocs link (optional)
+                  type: string
+                  description: >-
+                    Link to the folder in a Git repo that holds mkdocs.yml and a docs/ folder,
+                    e.g. https://github.com/my-org/payments/tree/main. Adds a "Docs" tab to the System.
+                  pattern: '^https?://.+'
+                pdf: &pdf
+                  title: PDF document (optional)
+                  type: string
+                  format: data-url
+                  description: Upload a PDF (max 7 MB). It is shown under Links on the System page.
+                  ui:options:
+                    accept: .pdf,application/pdf
+                  # The value is the whole file as base64 text; show a short label on the Review step instead
+                  ui:backstage:
+                    review:
+                      mask: PDF selected (uploaded when you submit)
+                ownerType: &ownerType
+                  title: Owner type
+                  type: string
+                  enum: [user, group]
+                  enumNames: [A User, A Group]
+                  default: group
+                  ui:widget: radio
+              # The two pickers need different names: Backstage stores ui:options per
+              # field name, so two fields both called "owner" would share one filter.
+              dependencies: &ownerDependencies
+                ownerType:
+                  oneOf:
+                    - required: [ownerUser]
+                      properties:
+                        ownerType:
+                          const: user
+                        ownerUser:
+                          title: Owner (User)
+                          type: string
+                          description: The person responsible for this System
+                          ui:field: OwnerPicker
+                          ui:options:
+                            catalogFilter:
+                              kind: User
+                            allowArbitraryValues: false
+                    - required: [ownerGroup]
+                      properties:
+                        ownerType:
+                          const: group
+                        ownerGroup:
+                          title: Owner (Group)
+                          type: string
+                          description: The team responsible for this System
+                          ui:field: OwnerPicker
+                          ui:options:
+                            catalogFilter:
+                              kind: Group
+                            allowArbitraryValues: false
+
+            # ----- Edit -----
+            - required: [system, name, title, ownerType]
+              properties:
+                operation:
+                  const: edit
+                system: &picker
+                  title: System
+                  type: string
+                  description: Only systems stored in the database are listed
+                  ui:field: EntityPicker
+                  ui:options:
+                    catalogFilter:
+                      kind: System
+                      metadata.annotations.tesfa.io/source: database
+                    allowArbitraryValues: false
+                name: *name
+                title: *title
+                description: *description
+                techdocsUrl: *techdocsUrl
+                pdfUrl:
+                  title: Current PDF (link)
+                  type: string
+                  description: Kept as is. Clear it to remove the PDF, or upload a new one above to replace it.
+                pdf: *pdf
+                ownerType: *ownerType
+              dependencies: *ownerDependencies
+
+            # ----- Delete -----
+            - required: [system, confirm]
+              properties:
+                operation:
+                  const: delete
+                system: *picker
+                confirm:
+                  title: I understand this System will be permanently deleted
+                  type: boolean
+                  const: true
+
+  # ---------- FORM → DATABASE → CATALOG (only the step for the chosen operation runs) ----------
+  steps:
+    - id: upload-pdf
+      name: Upload PDF
+      if: ${{ parameters.pdf and parameters.operation != 'delete' }}
+      action: tesfa:file:upload
+      input:
+        file: ${{ parameters.pdf }}
+
+    - id: create
+      name: Save to database
+      if: ${{ parameters.operation == 'create' }}
+      action: tesfa:entity:save
+      input:
+        entity: &systemEntity
+          apiVersion: backstage.io/v1alpha1
+          kind: System
+          metadata:
+            name: ${{ parameters.name }}
+            title: ${{ parameters.title }}
+            description: ${{ parameters.description }}
+            # TechDocs annotation only when a link is given (an empty value would add a broken Docs tab)
+            annotations: >-
+              ${{ {'backstage.io/techdocs-ref': 'url:' + parameters.techdocsUrl} if parameters.techdocsUrl else {} }}
+            # PDF link: a new upload replaces the current one; clearing "Current PDF" removes it
+            links: >-
+              ${{ [{'url': steps['upload-pdf'].output.url, 'title': 'PDF: ' + steps['upload-pdf'].output.name, 'icon': 'docs', 'type': 'pdf'}]
+              if parameters.pdf else
+              ([{'url': parameters.pdfUrl, 'title': 'PDF: ' + (parameters.pdfUrl.split('/') | last), 'icon': 'docs', 'type': 'pdf'}] if parameters.pdfUrl else []) }}
+          spec:
+            owner: ${{ parameters.ownerUser if parameters.ownerType == 'user' else parameters.ownerGroup }}
+
+    - id: edit
+      name: Update in database
+      if: ${{ parameters.operation == 'edit' }}
+      action: tesfa:entity:update
+      input:
+        entityRef: ${{ parameters.system }}
+        entity: *systemEntity
+
+    - id: delete
+      name: Delete from database
+      if: ${{ parameters.operation == 'delete' }}
+      action: tesfa:entity:delete
+      input:
+        entityRef: ${{ parameters.system }}
+
+  output:
+    links:
+      - title: ${{ 'Back to the catalog' if parameters.operation == 'delete' else 'Open in catalog (shows the change within about a minute)' }}
+        icon: catalog
+        url: ${{ '/catalog' if parameters.operation == 'delete' else '/catalog/default/system/' + parameters.name }}

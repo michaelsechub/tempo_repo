@@ -44,13 +44,53 @@ function buildEditUrl(appBaseUrl: string, entity: Entity): string | undefined {
         dependsOn: spec.dependsOn ?? [],
       };
       break;
-    case 'System':
+    case 'System': {
+      // Owner is split into "Owner type" (user/group) + the matching picker
+      const techdocsRef = entity.metadata.annotations?.['backstage.io/techdocs-ref'];
+      const ownerIsUser = String(spec.owner ?? '').toLowerCase().startsWith('user:');
+      const { owner, ...rest } = common;
       template = 'manage-system-db';
-      formData = { operation: 'edit', system: ref, title: entity.metadata.title ?? '', ...common };
+      formData = {
+        operation: 'edit',
+        system: ref,
+        title: entity.metadata.title ?? '',
+        ...rest,
+        ownerType: ownerIsUser ? 'user' : 'group',
+        ...(ownerIsUser ? { ownerUser: owner } : { ownerGroup: owner }),
+        techdocsUrl: techdocsRef?.startsWith('url:') ? techdocsRef.slice(4) : undefined,
+        pdfUrl: entity.metadata.links?.find(link => link.type === 'pdf')?.url,
+      };
       break;
+    }
     case 'Domain':
       template = 'manage-domain-db';
       formData = { operation: 'edit', domain: ref, title: entity.metadata.title ?? '', ...common };
+      break;
+    case 'User':
+      template = 'manage-user-group-db';
+      formData = {
+        operation: 'edit-user',
+        user: ref,
+        name: entity.metadata.name,
+        description: entity.metadata.description ?? '',
+        displayName: spec.profile?.displayName ?? '',
+        email: spec.profile?.email,
+        memberOf: spec.memberOf ?? [],
+      };
+      break;
+    case 'Group':
+      template = 'manage-user-group-db';
+      formData = {
+        operation: 'edit-group',
+        group: ref,
+        name: entity.metadata.name,
+        description: entity.metadata.description ?? '',
+        displayName: spec.profile?.displayName ?? '',
+        email: spec.profile?.email,
+        type: spec.type,
+        parent: spec.parent,
+        members: spec.members ?? [],
+      };
       break;
     default:
       return undefined;

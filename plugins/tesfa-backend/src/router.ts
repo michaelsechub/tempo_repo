@@ -3,16 +3,31 @@ import {
   HttpAuthService,
 } from '@backstage/backend-plugin-api';
 import { ConflictError, InputError, NotFoundError } from '@backstage/errors';
-import { z } from 'zod/v3';
 import express from 'express';
+import { randomUUID } from 'node:crypto';
+import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { join, resolve as resolvePath } from 'node:path';
 import Router from 'express-promise-router';
 import { Knex } from 'knex';
 import { CatalogService } from '@backstage/plugin-catalog-node';
 import { parseEntityRef, stringifyEntityRef } from '@backstage/catalog-model';
-import { todoListServiceRef } from './services/TodoListService';
 
 // Location ref the catalog uses when validating entities stored by this plugin
 const VALIDATION_LOCATION_REF = 'url:tesfa-db';
+
+// PDF uploads: the scaffolder accepts 10 MB requests, and base64 adds about a third
+const MAX_PDF_BYTES = 7 * 1024 * 1024;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Makes an uploaded file name safe for URLs and headers, e.g. "My Plan (v2).pdf" → "My_Plan_v2.pdf". */
+function safePdfName(original: string): string {
+  const base = original
+    .replace(/\.pdf$/i, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/^[._]+|[._]+$/g, '')
+    .slice(0, 100);
+  return `${base || 'document'}.pdf`;
+}
 
 // spec fields that must point to entities that already exist in the catalog.
 // defaultKind is the Backstage convention when the value has no kind, e.g. `owner: team-a`.
@@ -48,17 +63,92 @@ function collectReferences(entity: any): { field: string; ref: string }[] {
 
 export async function createRouter({
   httpAuth,
-  todoList,
   db,
   catalog,
+  filesDir = 'files',
 }: {
   httpAuth: HttpAuthService;
-  todoList: typeof todoListServiceRef.T;
   db: Knex;
   catalog: CatalogService;
+  /** Folder for uploaded PDFs (absolute, or relative to the backend's working directory) */
+  filesDir?: string;
 }): Promise<express.Router> {
   const router = Router();
-  router.use(express.json());
+
+  // Uploaded PDFs are saved as <filesDir>/<id>.pdf
+  const filesFolder = resolvePath(filesDir);
+  await mkdir(filesFolder, { recursive: true });
+  // Large enough for a base64-encoded PDF upload (see POST /files)
+  router.use(express.json({ limit: '15mb' }));
+
+  // ---------- Files (PDF uploads) ----------
+
+  // Stores one PDF sent as a data URL ("data:application/pdf;name=x.pdf;base64,...")
+  // and returns its path. Called by the `tesfa:file:upload` scaffolder action.
+  router.post('/files', async (req, res) => {
+    const credentials = await httpAuth.credentials(req, { allow: ['user'] });
+
+    const dataUrl = req.body?.dataUrl;
+    const match =
+      typeof dataUrl === 'string'
+        ? /^data:([^;,]+)((?:;[^;,]*)*);base64,(.*)$/s.exec(dataUrl)
+        : null;
+    if (!match) {
+      throw new InputError('Body must be { "dataUrl": "data:application/pdf;base64,..." }');
+    }
+    const [, contentType, params, base64] = match;
+    const data = Buffer.from(base64, 'base64');
+
+    // Check the declared type and the file's own header bytes
+    if (contentType !== 'application/pdf' || data.subarray(0, 5).toString('latin1') !== '%PDF-') {
+      throw new InputError('Only PDF files can be uploaded');
+    }
+    if (data.length > MAX_PDF_BYTES) {
+      throw new InputError(`The PDF is larger than ${MAX_PDF_BYTES / 1024 / 1024} MB`);
+    }
+
+    const nameParam = params.split(';').find(p => p.startsWith('name='));
+    const name = safePdfName(nameParam ? decodeURIComponent(nameParam.slice(5)) : '');
+    const id = randomUUID();
+    const filePath = join(filesFolder, `${id}.pdf`);
+
+    // The PDF goes into the folder; the table keeps its details (name, size, who uploaded it)
+    await writeFile(filePath, data);
+    try {
+      await db('files').insert({
+        id,
+        name,
+        content_type: contentType,
+        size: data.length,
+        created_by: credentials.principal.userEntityRef,
+      });
+    } catch (error) {
+      await unlink(filePath).catch(() => {});
+      throw error;
+    }
+
+    res.status(201).json({ id, name, path: `/files/${id}/${name}` });
+  });
+
+  // Serves a stored PDF in the browser. Open without sign-in (see plugin.ts), so
+  // links on entity pages work; the random id is what keeps files from being guessed.
+  async function serveFile(req: express.Request, res: express.Response) {
+    const { id } = req.params;
+    if (!UUID_PATTERN.test(id)) {
+      throw new NotFoundError('File not found');
+    }
+    const file = await db('files').where({ id }).first('name', 'content_type');
+    const filePath = join(filesFolder, `${id}.pdf`);
+    if (!file || !(await stat(filePath).catch(() => undefined))?.isFile()) {
+      throw new NotFoundError('File not found');
+    }
+    res.setHeader('Content-Type', file.content_type);
+    res.setHeader('Content-Disposition', `inline; filename="${file.name}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.sendFile(filePath);
+  }
+  router.get('/files/:id', serveFile);
+  router.get('/files/:id/:name', serveFile);
 
   // Checks used by both create and edit: the body is a valid entity and its
   // owner/system exist in the catalog. Throws an InputError (400) otherwise.
@@ -208,38 +298,6 @@ export async function createRouter({
   router.get('/entities', async (_req, res) => {
     const rows = await db('entities').select('entity');
     res.json(rows.map(row => row.entity));
-  });
-
-  // TEMPLATE NOTE:
-  // Zod is a powerful library for data validation and recommended in particular
-  // for user-defined schemas. In this case we use it for input validation too.
-  //
-  // If you want to define a schema for your API we recommend using Backstage's
-  // OpenAPI tooling: https://backstage.io/docs/next/openapi/01-getting-started
-  const todoSchema = z.object({
-    title: z.string(),
-    entityRef: z.string().optional(),
-  });
-
-  router.post('/todos', async (req, res) => {
-    const parsed = todoSchema.safeParse(req.body);
-    if (!parsed.success) {
-      throw new InputError(parsed.error.toString());
-    }
-
-    const result = await todoList.createTodo(parsed.data, {
-      credentials: await httpAuth.credentials(req, { allow: ['user'] }),
-    });
-
-    res.status(201).json(result);
-  });
-
-  router.get('/todos', async (_req, res) => {
-    res.json(await todoList.listTodos());
-  });
-
-  router.get('/todos/:id', async (req, res) => {
-    res.json(await todoList.getTodo({ id: req.params.id }));
   });
 
   return router;

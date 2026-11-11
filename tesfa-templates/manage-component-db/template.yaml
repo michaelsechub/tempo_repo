@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: manage-component-db
   title: Manage a Component 
-  description: Create, edit or delete a Component stored in the tesfa database. The catalog shows the change within about a minute. No Git involved.
+  description: Create, edit or delete a Component stored in the tesfa database. 
   tags: [catalog, tesfa, database]
 spec:
   owner: group:default/guests

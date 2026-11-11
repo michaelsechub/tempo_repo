@@ -1,129 +1,41 @@
-import {
-  mockCredentials,
-  startTestBackend,
-} from '@backstage/backend-test-utils';
-import { createServiceFactory } from '@backstage/backend-plugin-api';
-import { todoListServiceRef } from './services/TodoListService';
-import { tesfaPlugin } from './plugin';
-import request from 'supertest';
+import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { catalogServiceMock } from '@backstage/plugin-catalog-node/testUtils';
-import {
-  ConflictError,
-  AuthenticationError,
-  NotAllowedError,
-} from '@backstage/errors';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import request from 'supertest';
+import { tesfaPlugin } from './plugin';
 
-// TEMPLATE NOTE:
-// Plugin tests are integration tests for your plugin, ensuring that all pieces
-// work together end-to-end. You can still mock injected backend services
-// however, just like anyone who installs your plugin might replace the
-// services with their own implementations.
+// Integration test: starts the plugin with a real (in-memory) database,
+// so the migrations and routes are exercised end-to-end.
 describe('plugin', () => {
-  it('should create and read TODO items', async () => {
-    const { server } = await startTestBackend({
-      features: [tesfaPlugin],
-    });
-
-    await request(server).get('/api/tesfa/todos').expect(200, {
-      items: [],
-    });
-
-    const createRes = await request(server)
-      .post('/api/tesfa/todos')
-      .send({ title: 'My Todo' });
-
-    expect(createRes.status).toBe(201);
-    expect(createRes.body).toEqual({
-      id: expect.any(String),
-      title: 'My Todo',
-      createdBy: mockCredentials.user().principal.userEntityRef,
-      createdAt: expect.any(String),
-    });
-
-    const createdTodoItem = createRes.body;
-
-    await request(server)
-      .get('/api/tesfa/todos')
-      .expect(200, {
-        items: [createdTodoItem],
-      });
-
-    await request(server)
-      .get(`/api/tesfa/todos/${createdTodoItem.id}`)
-      .expect(200, createdTodoItem);
-  });
-
-  it('should create TODO item with catalog information', async () => {
+  it('runs the migrations and lists stored entities', async () => {
     const { server } = await startTestBackend({
       features: [
         tesfaPlugin,
-        catalogServiceMock.factory({
-          entities: [
-            {
-              apiVersion: 'backstage.io/v1alpha1',
-              kind: 'Component',
-              metadata: {
-                name: 'my-component',
-                namespace: 'default',
-                title: 'My Component',
-              },
-              spec: {
-                type: 'service',
-                owner: 'me',
-              },
-            },
-          ],
+        catalogServiceMock.factory(),
+        mockServices.rootConfig.factory({
+          data: { tesfa: { filesDir: mkdtempSync(join(tmpdir(), 'tesfa-files-')) } },
         }),
       ],
     });
 
-    const createRes = await request(server)
-      .post('/api/tesfa/todos')
-      .send({ title: 'My Todo', entityRef: 'component:default/my-component' });
-
-    expect(createRes.status).toBe(201);
-    expect(createRes.body).toEqual({
-      id: expect.any(String),
-      title: '[My Component] My Todo',
-      createdBy: mockCredentials.user().principal.userEntityRef,
-      createdAt: expect.any(String),
-    });
+    await request(server).get('/api/tesfa/entities').expect(200, []);
   });
 
-  it('should forward errors from the TodoListService', async () => {
+  it('returns 404 for an unknown file', async () => {
     const { server } = await startTestBackend({
       features: [
         tesfaPlugin,
-        createServiceFactory({
-          service: todoListServiceRef,
-          deps: {},
-          factory: () => ({
-            createTodo: jest.fn().mockRejectedValue(new ConflictError()),
-            listTodos: jest.fn().mockRejectedValue(new AuthenticationError()),
-            getTodo: jest.fn().mockRejectedValue(new NotAllowedError()),
-          }),
-        })
+        catalogServiceMock.factory(),
+        mockServices.rootConfig.factory({
+          data: { tesfa: { filesDir: mkdtempSync(join(tmpdir(), 'tesfa-files-')) } },
+        }),
       ],
     });
 
-    const createRes = await request(server)
-      .post('/api/tesfa/todos')
-      .send({ title: 'My Todo', entityRef: 'component:default/my-component' });
-    expect(createRes.status).toBe(409);
-    expect(createRes.body).toMatchObject({
-      error: { name: 'ConflictError' },
-    });
-
-    const listRes = await request(server).get('/api/tesfa/todos');
-    expect(listRes.status).toBe(401);
-    expect(listRes.body).toMatchObject({
-      error: { name: 'AuthenticationError' },
-    });
-
-    const getRes = await request(server).get('/api/tesfa/todos/123');
-    expect(getRes.status).toBe(403);
-    expect(getRes.body).toMatchObject({
-      error: { name: 'NotAllowedError' },
-    });
+    await request(server)
+      .get('/api/tesfa/files/00000000-0000-0000-0000-000000000000/x.pdf')
+      .expect(404);
   });
 });

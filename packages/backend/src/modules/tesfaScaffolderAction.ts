@@ -112,6 +112,51 @@ export default createBackendModule({
             },
           }),
           createTemplateAction({
+            id: 'tesfa:file:upload',
+            description:
+              'Uploads a PDF (from a `format: data-url` form field) to the tesfa backend and returns its link',
+            schema: {
+              input: {
+                file: z =>
+                  z
+                    .string()
+                    .describe('The file as a data URL, e.g. data:application/pdf;name=x.pdf;base64,...'),
+              },
+              output: {
+                url: z => z.string().describe('Link that opens the PDF in the browser'),
+                name: z => z.string().describe('The stored file name'),
+              },
+            },
+            async handler(ctx) {
+              const baseUrl = await discovery.getBaseUrl('tesfa');
+              const { token } = await auth.getPluginRequestToken({
+                onBehalfOf: await ctx.getInitiatorCredentials(),
+                targetPluginId: 'tesfa',
+              });
+
+              const res = await fetch(`${baseUrl}/files`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ dataUrl: ctx.input.file }),
+              });
+              if (!res.ok) {
+                throw new Error(
+                  `tesfa backend returned ${res.status}: ${await res.text()}`,
+                );
+              }
+
+              const { name, path } = await res.json();
+              // Browser-facing address, e.g. http://localhost:7007/api/tesfa/files/<id>/<name>
+              const url = `${await discovery.getExternalBaseUrl('tesfa')}${path}`;
+              ctx.logger.info(`Uploaded ${name}: ${url}`);
+              ctx.output('url', url);
+              ctx.output('name', name);
+            },
+          }),
+          createTemplateAction({
             id: 'tesfa:entity:delete',
             description: 'Deletes an entity from the tesfa database',
             schema: {

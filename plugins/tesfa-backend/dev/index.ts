@@ -9,19 +9,14 @@ import { catalogServiceMock } from '@backstage/plugin-catalog-node/testUtils';
 // Start up the backend by running `yarn start` in the package directory.
 // Once it's up and running, try out the following requests:
 //
-// Create a new todo item, standalone or for the sample component:
+// List entities stored in the database:
 //
-//   curl http://localhost:7007/api/tesfa/todos -H 'Content-Type: application/json' -d '{"title": "My Todo"}'
-//   curl http://localhost:7007/api/tesfa/todos -H 'Content-Type: application/json' -d '{"title": "My Todo", "entityRef": "component:default/sample"}'
-//
-// List TODOs:
-//
-//   curl http://localhost:7007/api/tesfa/todos
+//   curl http://localhost:7007/api/tesfa/entities
 //
 // Explicitly make an unauthenticated request, or with service auth:
 //
-//   curl http://localhost:7007/api/tesfa/todos -H 'Authorization: Bearer mock-none-token'
-//   curl http://localhost:7007/api/tesfa/todos -H 'Authorization: Bearer mock-service-token'
+//   curl http://localhost:7007/api/tesfa/entities -H 'Authorization: Bearer mock-none-token'
+//   curl http://localhost:7007/api/tesfa/entities -H 'Authorization: Bearer mock-service-token'
 
 const backend = createBackend();
 
