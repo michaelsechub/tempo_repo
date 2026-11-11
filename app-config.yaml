@@ -150,6 +150,10 @@ catalog:
       target: ../../examples/tesfa-templates/register-component/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../examples/tesfa-templates/register-component-db/template.yaml
+      rules:
+        - allow: [Template]
   #   # Local example template
   #   - type: file
   #     target: ../../examples/template/template.yaml

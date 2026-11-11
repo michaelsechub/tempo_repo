@@ -27,6 +27,7 @@
     "@backstage/backend-defaults": "^0.18.1",
     "@backstage/backend-plugin-api": "^1.11.0",
     "@backstage/catalog-client": "^1.16.3",
+    "@backstage/catalog-model": "^1.10.2",
     "@backstage/errors": "^1.3.2",
     "@backstage/plugin-catalog-node": "^2.2.6",
     "@backstage/types": "^1.2.2",
@@ -46,5 +47,4 @@
     "dist",
     "migrations"
   ]
-  
 }

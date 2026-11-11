@@ -1,0 +1,120 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: register-component-db
+  title: Register a Component (database)
+  description: Fill in a form. Backstage saves the component to the tesfa database, and the catalog picks it up within about a minute. No Git involved.
+  tags: [catalog, tesfa, database]
+spec:
+  owner: group:default/guests
+  type: service
+
+  # ---------- THE FORM (2 pages) ----------
+  parameters:
+    # Page 1: basic info
+    - title: Component details
+      required: [name, type, lifecycle]
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name, e.g. payment-service
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          default: ''
+        type:
+          title: Type
+          type: string
+          enum: [service, website, library]
+          default: service
+        lifecycle:
+          title: Lifecycle
+          type: string
+          enum: [experimental, production, deprecated]
+          default: experimental
+
+    # Page 2: relationships, picked from existing catalog entities
+    - title: Ownership and relationships
+      required: [system, owner]
+      properties:
+        system:
+          title: System
+          type: string
+          description: The system this component belongs to
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: System
+            allowArbitraryValues: false
+        owner:
+          title: Owner
+          type: string
+          description: The user or group responsible for it
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+            allowArbitraryValues: false
+        providesApis:
+          title: Provides APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        consumesApis:
+          title: Consumes APIs
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: API
+            allowArbitraryValues: false
+        dependsOn:
+          title: Depends on
+          type: array
+          default: []
+          items:
+            type: string
+          ui:field: MultiEntityPicker
+          ui:options:
+            catalogFilter:
+              kind: [Component, Resource]
+            allowArbitraryValues: false
+
+  # ---------- FORM → DATABASE → CATALOG ----------
+  steps:
+    - id: save
+      name: Save to database
+      action: tesfa:entity:save
+      input:
+        entity:
+          apiVersion: backstage.io/v1alpha1
+          kind: Component
+          metadata:
+            name: ${{ parameters.name }}
+            description: ${{ parameters.description }}
+          spec:
+            type: ${{ parameters.type }}
+            lifecycle: ${{ parameters.lifecycle }}
+            owner: ${{ parameters.owner }}
+            system: ${{ parameters.system }}
+            providesApis: ${{ parameters.providesApis }}
+            consumesApis: ${{ parameters.consumesApis }}
+            dependsOn: ${{ parameters.dependsOn }}
+
+  output:
+    links:
+      - title: Open in catalog (available within about a minute)
+        icon: catalog
+        entityRef: component:default/${{ parameters.name }}

@@ -78,4 +78,9 @@ backend.add(
 );
 
 backend.add(import('@internal/backstage-plugin-tesfa-backend'));
+
+// Form → DB → catalog
+backend.add(import('./modules/tesfaScaffolderAction')); // scaffolder action: tesfa:entity:save
+backend.add(import('./modules/tesfaEntityProvider')); // catalog provider: reads tesfa.entities
+
 backend.start();
